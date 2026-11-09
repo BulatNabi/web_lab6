@@ -53,4 +53,12 @@ class UserTest < ActiveSupport::TestCase
     @user.save
     assert_not duplicate_user.valid?
   end
+
+  test "database rejects duplicate emails even without validations" do
+    @user.save
+    duplicate_user = @user.dup
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      duplicate_user.save(validate: false)
+    end
+  end
 end
