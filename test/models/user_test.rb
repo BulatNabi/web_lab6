@@ -69,4 +69,56 @@ class UserTest < ActiveSupport::TestCase
     @user.save
     assert_equal mixed_case_email.downcase, @user.reload.email
   end
+
+  test "password should be present (nonblank)" do
+    @user.password = @user.password_confirmation = " " * 6
+    assert_not @user.valid?
+  end
+
+  test "password should have a minimum length" do
+    @user.password = @user.password_confirmation = "a" * 5
+    assert_not @user.valid?
+  end
+
+  test "password confirmation should match" do
+    @user.password_confirmation = "different"
+    assert_not @user.valid?
+  end
+
+  test "password cannot exceed the bcrypt limit of 72 bytes" do
+    @user.password = @user.password_confirmation = "a" * 73
+    assert_not @user.valid?
+  end
+
+  test "six character password is valid" do
+    @user.password = @user.password_confirmation = "a" * 6
+    assert @user.valid?
+  end
+
+  test "maximum allowed lengths should be valid" do
+    @user.name = "a" * 50
+    @user.email = "a" * 243 + "@example.com"
+    assert @user.valid?
+  end
+
+  test "authentication accepts only the correct password" do
+    @user.save
+    user = User.find(@user.id)
+    assert_equal user, user.authenticate("foobar")
+    assert_equal true, !!user.authenticate("foobar")
+    assert_equal false, user.authenticate("foobaz")
+    assert_equal false, user.authenticate("not_the_right_password")
+    assert_not_equal "foobar", user.password_digest
+    assert BCrypt::Password.new(user.password_digest).is_password?("foobar")
+  end
+
+  test "a loaded user needs a password to save, update_attribute skips validations" do
+    @user.save
+    user = User.find(@user.id)
+    user.name = "New Name"
+    assert_not user.save
+    assert_includes user.errors[:password], "can't be blank"
+    assert user.update_attribute(:name, "Updated Name")
+    assert_equal "Updated Name", user.reload.name
+  end
 end
